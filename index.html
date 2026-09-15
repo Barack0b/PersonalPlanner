@@ -21,7 +21,6 @@
     --slate:#5B6B70;     --slate-soft:#E7E9EA;
     --sky:#3F7FBF;       --sky-soft:#E6EEF6;
     --rose:#B85C7A;      --rose-soft:#F5E6EB;
-    --forest:#3D6B4F;    --forest-soft:#E3EEE7;
     --shadow: 0 1px 2px rgba(34,48,59,0.06), 0 4px 14px rgba(34,48,59,0.06);
   }
   *{box-sizing:border-box;}
@@ -48,14 +47,12 @@
   .tab[data-cat="calendar-schedule"] .dot{background:var(--amber);}
   .tab[data-cat="calendar-events"] .dot{background:var(--rose);}
   .tab[data-cat="learning"] .dot{background:var(--indigo);}
-  .tab[data-cat="goals"] .dot{background:var(--forest);}
   .tab[data-cat="free"] .dot{background:var(--coral);}
   .tab.active[data-cat="tasks"]{background:var(--teal-soft);}
   .tab.active[data-cat="reminders"]{background:var(--sky-soft);}
   .tab.active[data-cat="calendar-schedule"]{background:var(--amber-soft);}
   .tab.active[data-cat="calendar-events"]{background:var(--rose-soft);}
   .tab.active[data-cat="learning"]{background:var(--indigo-soft);}
-  .tab.active[data-cat="goals"]{background:var(--forest-soft);}
   .tab.active[data-cat="free"]{background:var(--coral-soft);}
   .sidebar-footer{ display:flex; gap:6px; padding-right:14px; }
   .icon-btn{ width:36px; height:36px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; }
@@ -92,7 +89,6 @@
   .entry{ display:flex; align-items:flex-start; gap:12px; background:var(--paper); border:1px solid var(--line);
     border-left:4px solid var(--teal); border-radius:10px; padding:13px 14px; }
   .entry.learning{border-left-color:var(--indigo);}
-  .entry.goal{border-left-color:var(--forest);}
   .entry.free{border-left-color:var(--coral);}
   .entry.reminder{border-left-color:var(--sky);}
   .entry.done{opacity:0.5;}
@@ -242,7 +238,6 @@
   <div class="tab" data-cat="calendar-schedule" onclick="showCalendar('schedule')"><span class="dot"></span><span>Normal Schedule</span></div>
   <div class="tab" data-cat="calendar-events" onclick="showCalendar('events')"><span class="dot"></span><span>Events</span></div>
   <div class="tab" data-cat="learning" onclick="showSection('learning')"><span class="dot"></span><span>Learning</span></div>
-  <div class="tab" data-cat="goals" onclick="showSection('goals')"><span class="dot"></span><span>Goals</span></div>
   <div class="tab" data-cat="free" onclick="showSection('free')"><span class="dot"></span><span>Free Time</span></div>
   <div style="flex:1;"></div>
   <div class="sync-bar" onclick="openSyncModal()" title="Cloud sync settings">
@@ -281,10 +276,6 @@
       <div class="today-card">
         <h3><span class="dot" style="background:var(--indigo)"></span>Still learning</h3>
         <div id="today-learning">Loading…</div>
-      </div>
-      <div class="today-card">
-        <h3><span class="dot" style="background:var(--forest)"></span>Life goals</h3>
-        <div id="today-goals">Loading…</div>
       </div>
       <div class="today-card">
         <h3><span class="dot" style="background:var(--coral)"></span>If you've got free time</h3>
@@ -372,18 +363,6 @@
       <button onclick="addLearning()">Add</button>
     </div>
     <div class="entry-list" id="learning-list">Loading…</div>
-  </section>
-
-  <!-- GOALS -->
-  <section class="section" id="section-goals">
-    <div class="topline"><h1>Life goals</h1></div>
-    <div class="add-row">
-      <input type="text" id="goal-input" placeholder="A goal for your life…">
-      <input type="text" id="goal-category" placeholder="Category (e.g. Career)" style="max-width:160px;">
-      <input type="date" id="goal-target">
-      <button onclick="addGoal()">Add</button>
-    </div>
-    <div class="entry-list" id="goal-list">Loading…</div>
   </section>
 
   <!-- FREE TIME -->
@@ -519,7 +498,7 @@
 
 <script>
 /* ================= State ================= */
-let data = { tasks: [], events: [], learning: [], free: [], reminders: [], goals: [] };
+let data = { tasks: [], events: [], learning: [], free: [], reminders: [] };
 let calCursor = new Date();
 let viewMode = 'month';
 let taskFilter = 'all';
@@ -572,7 +551,7 @@ async function storageSet(key, value){
   if(hasClaudeStorage()){ try{ await window.storage.set(key, value, false); return; }catch(e){ /* fall through */ } }
   try{ localStorage.setItem(key, value); }catch(e){ console.error('Could not save', key, e); }
 }
-const DATA_KEYS = ['tasks','events','learning','free','reminders','goals'];
+const DATA_KEYS = ['tasks','events','learning','free','reminders'];
 
 async function loadAll(){
   for(const k of DATA_KEYS){
@@ -883,55 +862,6 @@ function renderLearning(){
       <button class="del" onclick="deleteLearning('${it.id}')">✕</button>
     </div>
   `).join('');
-}
-
-/* ================= Goals ================= */
-function addGoal(){
-  const input = document.getElementById('goal-input');
-  const category = document.getElementById('goal-category').value.trim();
-  const target = document.getElementById('goal-target').value;
-  const text = input.value.trim();
-  if(!text) return;
-  data.goals.push({id:uid(), text, category, target:target||null, status:'not started'});
-  input.value=''; document.getElementById('goal-category').value=''; document.getElementById('goal-target').value='';
-  save('goals'); renderGoals(); renderToday();
-  showToast('Goal added');
-}
-function cycleGoalStatus(id){
-  const order = ['not started','in progress','achieved'];
-  const item = data.goals.find(x=>x.id===id); if(!item) return;
-  item.status = order[(order.indexOf(item.status)+1)%order.length];
-  save('goals'); renderGoals(); renderToday();
-}
-function deleteGoal(id){ data.goals = data.goals.filter(x=>x.id!==id); save('goals'); renderGoals(); renderToday(); }
-function sortGoals(list){
-  return [...list].sort((a,b)=>{
-    const aDone = a.status==='achieved', bDone = b.status==='achieved';
-    if(aDone!==bDone) return aDone?1:-1;
-    if(a.target && b.target) return a.target.localeCompare(b.target);
-    if(a.target && !b.target) return -1;
-    if(!a.target && b.target) return 1;
-    return 0;
-  });
-}
-function renderGoals(){
-  const el = document.getElementById('goal-list');
-  if(data.goals.length===0){ el.innerHTML = '<div class="empty">Add a goal you\'re working toward.</div>'; return; }
-  el.innerHTML = sortGoals(data.goals).map(g=>{
-    const done = g.status==='achieved';
-    return `
-      <div class="entry goal ${done?'done':''}">
-        <div class="check ${done?'checked':''}" onclick="cycleGoalStatus('${g.id}')"></div>
-        <div class="entry-body">
-          ${g.category?`<span class="badge" style="background:var(--forest-soft); color:var(--forest);">${escapeHtml(g.category)}</span>`:''}
-          <span class="badge status">${g.status}</span>
-          <div class="entry-title">${escapeHtml(g.text)}</div>
-          ${g.target?`<div class="entry-meta">Target: ${g.target}</div>`:''}
-        </div>
-        <button class="del" onclick="deleteGoal('${g.id}')">✕</button>
-      </div>
-    `;
-  }).join('');
 }
 
 /* ================= Free time ================= */
@@ -1286,7 +1216,7 @@ document.getElementById('confirm-modal-overlay').addEventListener('click', (e)=>
 
 /* ================= Export / Import ================= */
 function exportData(){
-  const backup = {tasks:data.tasks, events:data.events, learning:data.learning, free:data.free, reminders:data.reminders, goals:data.goals, exportedAt:new Date().toISOString()};
+  const backup = {tasks:data.tasks, events:data.events, learning:data.learning, free:data.free, reminders:data.reminders, exportedAt:new Date().toISOString()};
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1314,8 +1244,7 @@ async function importData(evt){
     data.learning = Array.isArray(parsed.learning) ? parsed.learning : [];
     data.free = Array.isArray(parsed.free) ? parsed.free : [];
     data.reminders = Array.isArray(parsed.reminders) ? parsed.reminders : [];
-    data.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
-    await save('tasks'); await save('events'); await save('learning'); await save('free'); await save('reminders'); await save('goals');
+    await save('tasks'); await save('events'); await save('learning'); await save('free'); await save('reminders');
     renderAll();
     showToast('Backup imported');
     if(syncKey) pushToServer();
@@ -1365,11 +1294,6 @@ function renderToday(){
     ? learningOpen.map(l=>`<div class="today-line">• ${escapeHtml(l.text)} <span class="entry-meta">(${l.status})</span></div>`).join('')
     : '<div class="empty">Nothing queued.</div>';
 
-  const goalsOpen = sortGoals(data.goals.filter(g=>g.status!=='achieved')).slice(0,4);
-  document.getElementById('today-goals').innerHTML = goalsOpen.length
-    ? goalsOpen.map(g=>`<div class="today-line">• ${escapeHtml(g.text)}${g.category?` <span class="entry-meta">(${escapeHtml(g.category)})</span>`:''}${g.target?` <span class="entry-meta">— by ${g.target}</span>`:''}</div>`).join('')
-    : '<div class="empty">Add a goal to work toward.</div>';
-
   const freeTip = data.free.length ? data.free[Math.floor(Math.random()*data.free.length)] : null;
   document.getElementById('today-free').innerHTML = freeTip
     ? `<div class="entry-title">${escapeHtml(freeTip.text)}</div>`
@@ -1377,14 +1301,13 @@ function renderToday(){
 }
 
 /* ================= Init ================= */
-function renderAll(){ renderTasks(); renderReminders(); renderLearning(); renderGoals(); renderFree(); renderCalendar(); renderToday(); }
-['task-input','learning-input','goal-input','free-input','reminder-input','ev-title'].forEach(id=>{
+function renderAll(){ renderTasks(); renderReminders(); renderLearning(); renderFree(); renderCalendar(); renderToday(); }
+['task-input','learning-input','free-input','reminder-input','ev-title'].forEach(id=>{
   const el = document.getElementById(id);
   if(el) el.addEventListener('keydown', e=>{
     if(e.key==='Enter' && id!=='ev-title'){
       if(id==='task-input') addTask();
       else if(id==='learning-input') addLearning();
-      else if(id==='goal-input') addGoal();
       else if(id==='free-input') addFree();
       else if(id==='reminder-input') addReminder();
     }
