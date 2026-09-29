@@ -299,6 +299,15 @@
       <label class="check-label"><input type="checkbox" id="task-homework" onchange="toggleSubjectField()"> Homework</label>
       <input type="text" id="task-subject" placeholder="Subject (e.g. Math)" style="display:none; max-width:150px;">
       <label class="check-label"><input type="checkbox" id="task-repeat-weekly" onchange="toggleWeeklyField()"> Repeats weekly</label>
+      <select id="task-reset-day" title="Day the task resets each week" style="display:none;">
+        <option value="0">Resets Sunday</option>
+        <option value="1">Resets Monday</option>
+        <option value="2">Resets Tuesday</option>
+        <option value="3">Resets Wednesday</option>
+        <option value="4">Resets Thursday</option>
+        <option value="5">Resets Friday</option>
+        <option value="6">Resets Saturday</option>
+      </select>
       <button onclick="addTask()">Add</button>
     </div>
     <div class="filter-pills">
@@ -714,10 +723,27 @@ function toggleSubjectField(){
 function toggleWeeklyField(){
   const isWeekly = document.getElementById('task-repeat-weekly').checked;
   document.getElementById('task-date').style.display = isWeekly ? 'none' : '';
+  document.getElementById('task-reset-day').style.display = isWeekly ? '' : 'none';
   if(isWeekly) document.getElementById('task-date').value = '';
 }
-function currentWeekKey(){ return isoDate(startOfWeek(new Date())); }
-function isTaskDoneNow(t){ return t.repeat==='weekly' ? (t.lastDoneWeek === currentWeekKey()) : !!t.done; }
+const FULL_DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+// The "period" a weekly task belongs to starts on its reset day. This returns the
+// date of the most recent reset day (today counts), used to tell if it's done this period.
+function weekKeyFor(resetDay){
+  const d = new Date(); d.setHours(0,0,0,0);
+  const diff = (d.getDay() - (parseInt(resetDay)||0) + 7) % 7;
+  d.setDate(d.getDate() - diff);
+  return isoDate(d);
+}
+function isTaskDoneNow(t){ return t.repeat==='weekly' ? (t.lastDoneWeek === weekKeyFor(t.resetDay)) : !!t.done; }
+function setTaskResetDay(id, day){
+  const t = data.tasks.find(x=>x.id===id); if(!t) return;
+  const wasDone = isTaskDoneNow(t);
+  t.resetDay = parseInt(day)||0;
+  t.lastDoneWeek = wasDone ? weekKeyFor(t.resetDay) : null;
+  save('tasks'); renderTasks(); renderToday();
+  showToast('Now resets every '+FULL_DAY_NAMES[t.resetDay]);
+}
 function setTaskFilter(f){
   taskFilter = f;
   document.querySelectorAll('.filter-pills .pill').forEach(p=>p.classList.toggle('active', p.dataset.f===f));
@@ -737,18 +763,20 @@ function addTask(){
     due: isWeekly ? null : (dateVal||null),
     priority, done:false,
     category:isHomework?'homework':'general', subject:isHomework?subject:'',
-    repeat: isWeekly ? 'weekly' : 'none', lastDoneWeek: null
+    repeat: isWeekly ? 'weekly' : 'none', lastDoneWeek: null,
+    resetDay: isWeekly ? (parseInt(document.getElementById('task-reset-day').value)||0) : 0
   });
   input.value=''; document.getElementById('task-date').value=''; document.getElementById('task-date').style.display='';
   document.getElementById('task-homework').checked=false;
   document.getElementById('task-subject').value=''; document.getElementById('task-subject').style.display='none';
   document.getElementById('task-repeat-weekly').checked=false;
+  document.getElementById('task-reset-day').value='0'; document.getElementById('task-reset-day').style.display='none';
   save('tasks'); renderTasks(); renderToday();
   showToast('Task added');
 }
 function toggleTask(id){
   const t = data.tasks.find(x=>x.id===id); if(!t) return;
-  if(t.repeat==='weekly'){ t.lastDoneWeek = isTaskDoneNow(t) ? null : currentWeekKey(); }
+  if(t.repeat==='weekly'){ t.lastDoneWeek = isTaskDoneNow(t) ? null : weekKeyFor(t.resetDay); }
   else { t.done = !t.done; }
   save('tasks'); renderTasks(); renderToday();
 }
@@ -787,7 +815,7 @@ function renderTasks(){
           <span class="badge priority-${t.priority}">${t.priority==='high'?'High':t.priority==='med'?'Medium':'Low'}</span>
           <div class="entry-title">${escapeHtml(t.text)}</div>
           ${t.due?`<div class="entry-meta">Due ${t.due}</div>`:''}
-          ${t.repeat==='weekly'?`<div class="entry-meta">Resets every week</div>`:''}
+          ${t.repeat==='weekly'?`<div class="entry-meta">Resets every <select onchange="setTaskResetDay('${t.id}', this.value)" style="font-size:11.5px; padding:2px 4px; border-radius:6px; font-family:inherit;">${FULL_DAY_NAMES.map((n,i)=>`<option value="${i}" ${(parseInt(t.resetDay)||0)===i?'selected':''}>${n}</option>`).join('')}</select></div>`:''}
         </div>
         <button class="del" onclick="deleteTask('${t.id}')">✕</button>
       </div>
