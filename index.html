@@ -20,6 +20,7 @@
     --plum:#7A5C9E;      --plum-soft:#EFE7F5;
     --slate:#5B6B70;     --slate-soft:#E7E9EA;
     --sky:#3F7FBF;       --sky-soft:#E6EEF6;
+    --mustard:#AD8A2C;   --mustard-soft:#F3ECD7;
     --rose:#B85C7A;      --rose-soft:#F5E6EB;
     --shadow: 0 1px 2px rgba(34,48,59,0.06), 0 4px 14px rgba(34,48,59,0.06);
   }
@@ -44,12 +45,14 @@
   .tab[data-cat="today"] .dot{background:var(--ink-soft);}
   .tab[data-cat="tasks"] .dot{background:var(--teal);}
   .tab[data-cat="reminders"] .dot{background:var(--sky);}
+  .tab[data-cat="weekly-reminders"] .dot{background:var(--mustard);}
   .tab[data-cat="calendar-schedule"] .dot{background:var(--amber);}
   .tab[data-cat="calendar-events"] .dot{background:var(--rose);}
   .tab[data-cat="learning"] .dot{background:var(--indigo);}
   .tab[data-cat="free"] .dot{background:var(--coral);}
   .tab.active[data-cat="tasks"]{background:var(--teal-soft);}
   .tab.active[data-cat="reminders"]{background:var(--sky-soft);}
+  .tab.active[data-cat="weekly-reminders"]{background:var(--mustard-soft);}
   .tab.active[data-cat="calendar-schedule"]{background:var(--amber-soft);}
   .tab.active[data-cat="calendar-events"]{background:var(--rose-soft);}
   .tab.active[data-cat="learning"]{background:var(--indigo-soft);}
@@ -91,6 +94,7 @@
   .entry.learning{border-left-color:var(--indigo);}
   .entry.free{border-left-color:var(--coral);}
   .entry.reminder{border-left-color:var(--sky);}
+  .entry.weekly-reminder{border-left-color:var(--mustard);}
   .entry.done{opacity:0.5;}
   .entry.done .entry-title{text-decoration:line-through;}
   .check{ width:20px;height:20px;border-radius:6px;border:2px solid var(--ink-soft); flex-shrink:0; cursor:pointer;
@@ -235,6 +239,7 @@
   <div class="tab active" data-cat="today" onclick="showSection('today')"><span class="dot"></span><span>Today</span></div>
   <div class="tab" data-cat="tasks" onclick="showSection('tasks')"><span class="dot"></span><span>Tasks</span></div>
   <div class="tab" data-cat="reminders" onclick="showSection('reminders')"><span class="dot"></span><span>Reminders</span></div>
+  <div class="tab" data-cat="weekly-reminders" onclick="showSection('weekly-reminders')"><span class="dot"></span><span>Weekly Reminders</span></div>
   <div class="tab" data-cat="calendar-schedule" onclick="showCalendar('schedule')"><span class="dot"></span><span>Normal Schedule</span></div>
   <div class="tab" data-cat="calendar-events" onclick="showCalendar('events')"><span class="dot"></span><span>Events</span></div>
   <div class="tab" data-cat="learning" onclick="showSection('learning')"><span class="dot"></span><span>Learning</span></div>
@@ -270,6 +275,10 @@
         <div id="today-reminders">Loading…</div>
       </div>
       <div class="today-card">
+        <h3><span class="dot" style="background:var(--mustard)"></span>Weekly reminders</h3>
+        <div id="today-weekly-reminders">Loading…</div>
+      </div>
+      <div class="today-card">
         <h3><span class="dot" style="background:var(--amber)"></span>Upcoming on the calendar</h3>
         <div id="today-next-events">Loading…</div>
       </div>
@@ -298,16 +307,6 @@
       </select>
       <label class="check-label"><input type="checkbox" id="task-homework" onchange="toggleSubjectField()"> Homework</label>
       <input type="text" id="task-subject" placeholder="Subject (e.g. Math)" style="display:none; max-width:150px;">
-      <label class="check-label"><input type="checkbox" id="task-repeat-weekly" onchange="toggleWeeklyField()"> Repeats weekly</label>
-      <select id="task-reset-day" title="Day the task resets each week" style="display:none;">
-        <option value="0">Resets Sunday</option>
-        <option value="1">Resets Monday</option>
-        <option value="2">Resets Tuesday</option>
-        <option value="3">Resets Wednesday</option>
-        <option value="4">Resets Thursday</option>
-        <option value="5">Resets Friday</option>
-        <option value="6">Resets Saturday</option>
-      </select>
       <button onclick="addTask()">Add</button>
     </div>
     <div class="filter-pills">
@@ -327,6 +326,26 @@
       <button onclick="addReminder()">Add</button>
     </div>
     <div class="entry-list" id="reminder-list">Loading…</div>
+  </section>
+
+  <!-- WEEKLY REMINDERS -->
+  <section class="section" id="section-weekly-reminders">
+    <div class="topline"><h1>Weekly reminders</h1></div>
+    <div class="add-row">
+      <input type="text" id="weekly-reminder-input" placeholder="Something that repeats weekly, like watering plants…">
+      <select id="weekly-reminder-day">
+        <option value="0">Every Sunday</option>
+        <option value="1">Every Monday</option>
+        <option value="2">Every Tuesday</option>
+        <option value="3">Every Wednesday</option>
+        <option value="4">Every Thursday</option>
+        <option value="5">Every Friday</option>
+        <option value="6">Every Saturday</option>
+      </select>
+      <input type="time" id="weekly-reminder-time">
+      <button onclick="addWeeklyReminder()">Add</button>
+    </div>
+    <div class="entry-list" id="weekly-reminder-list">Loading…</div>
   </section>
 
   <!-- CALENDAR -->
@@ -507,7 +526,7 @@
 
 <script>
 /* ================= State ================= */
-let data = { tasks: [], events: [], learning: [], free: [], reminders: [] };
+let data = { tasks: [], events: [], learning: [], free: [], reminders: [], weeklyReminders: [] };
 let calCursor = new Date();
 let viewMode = 'month';
 let taskFilter = 'all';
@@ -560,7 +579,7 @@ async function storageSet(key, value){
   if(hasClaudeStorage()){ try{ await window.storage.set(key, value, false); return; }catch(e){ /* fall through */ } }
   try{ localStorage.setItem(key, value); }catch(e){ console.error('Could not save', key, e); }
 }
-const DATA_KEYS = ['tasks','events','learning','free','reminders'];
+const DATA_KEYS = ['tasks','events','learning','free','reminders','weeklyReminders'];
 
 async function loadAll(){
   for(const k of DATA_KEYS){
@@ -720,30 +739,17 @@ function showCalendar(name){
 function toggleSubjectField(){
   document.getElementById('task-subject').style.display = document.getElementById('task-homework').checked ? 'block' : 'none';
 }
-function toggleWeeklyField(){
-  const isWeekly = document.getElementById('task-repeat-weekly').checked;
-  document.getElementById('task-date').style.display = isWeekly ? 'none' : '';
-  document.getElementById('task-reset-day').style.display = isWeekly ? '' : 'none';
-  if(isWeekly) document.getElementById('task-date').value = '';
-}
 const FULL_DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-// The "period" a weekly task belongs to starts on its reset day. This returns the
-// date of the most recent reset day (today counts), used to tell if it's done this period.
-function weekKeyFor(resetDay){
+// The "period" a weekly item belongs to starts on its chosen day. This returns the
+// date of the most recent occurrence of that day (today counts), used to tell
+// whether it's been done in the current weekly period.
+function weekKeyFor(day){
   const d = new Date(); d.setHours(0,0,0,0);
-  const diff = (d.getDay() - (parseInt(resetDay)||0) + 7) % 7;
+  const diff = (d.getDay() - (parseInt(day)||0) + 7) % 7;
   d.setDate(d.getDate() - diff);
   return isoDate(d);
 }
-function isTaskDoneNow(t){ return t.repeat==='weekly' ? (t.lastDoneWeek === weekKeyFor(t.resetDay)) : !!t.done; }
-function setTaskResetDay(id, day){
-  const t = data.tasks.find(x=>x.id===id); if(!t) return;
-  const wasDone = isTaskDoneNow(t);
-  t.resetDay = parseInt(day)||0;
-  t.lastDoneWeek = wasDone ? weekKeyFor(t.resetDay) : null;
-  save('tasks'); renderTasks(); renderToday();
-  showToast('Now resets every '+FULL_DAY_NAMES[t.resetDay]);
-}
+function isTaskDoneNow(t){ return !!t.done; }
 function setTaskFilter(f){
   taskFilter = f;
   document.querySelectorAll('.filter-pills .pill').forEach(p=>p.classList.toggle('active', p.dataset.f===f));
@@ -755,29 +761,22 @@ function addTask(){
   const priority = document.getElementById('task-priority').value;
   const isHomework = document.getElementById('task-homework').checked;
   const subject = document.getElementById('task-subject').value.trim();
-  const isWeekly = document.getElementById('task-repeat-weekly').checked;
   const text = input.value.trim();
   if(!text) return;
   data.tasks.push({
-    id:uid(), text,
-    due: isWeekly ? null : (dateVal||null),
+    id:uid(), text, due: dateVal||null,
     priority, done:false,
-    category:isHomework?'homework':'general', subject:isHomework?subject:'',
-    repeat: isWeekly ? 'weekly' : 'none', lastDoneWeek: null,
-    resetDay: isWeekly ? (parseInt(document.getElementById('task-reset-day').value)||0) : 0
+    category:isHomework?'homework':'general', subject:isHomework?subject:''
   });
-  input.value=''; document.getElementById('task-date').value=''; document.getElementById('task-date').style.display='';
+  input.value=''; document.getElementById('task-date').value='';
   document.getElementById('task-homework').checked=false;
   document.getElementById('task-subject').value=''; document.getElementById('task-subject').style.display='none';
-  document.getElementById('task-repeat-weekly').checked=false;
-  document.getElementById('task-reset-day').value='0'; document.getElementById('task-reset-day').style.display='none';
   save('tasks'); renderTasks(); renderToday();
   showToast('Task added');
 }
 function toggleTask(id){
   const t = data.tasks.find(x=>x.id===id); if(!t) return;
-  if(t.repeat==='weekly'){ t.lastDoneWeek = isTaskDoneNow(t) ? null : weekKeyFor(t.resetDay); }
-  else { t.done = !t.done; }
+  t.done = !t.done;
   save('tasks'); renderTasks(); renderToday();
 }
 function deleteTask(id){ data.tasks = data.tasks.filter(x=>x.id!==id); save('tasks'); renderTasks(); renderToday(); }
@@ -806,16 +805,14 @@ function renderTasks(){
     const catBadge = t.category==='homework'
       ? `<span class="badge" style="background:var(--${catColor}-soft); color:var(--${catColor});">${escapeHtml(t.subject||'Homework')}</span>`
       : `<span class="badge" style="background:var(--slate-soft); color:var(--slate);">General</span>`;
-    const weeklyBadge = t.repeat==='weekly' ? `<span class="badge" style="background:var(--sky-soft); color:var(--sky);">Weekly</span>` : '';
     return `
       <div class="entry ${done?'done':''}" style="border-left-color:var(--${catColor})">
         <div class="check ${done?'checked':''}" onclick="toggleTask('${t.id}')"></div>
         <div class="entry-body">
-          ${catBadge}${weeklyBadge}
+          ${catBadge}
           <span class="badge priority-${t.priority}">${t.priority==='high'?'High':t.priority==='med'?'Medium':'Low'}</span>
           <div class="entry-title">${escapeHtml(t.text)}</div>
           ${t.due?`<div class="entry-meta">Due ${t.due}</div>`:''}
-          ${t.repeat==='weekly'?`<div class="entry-meta">Resets every <select onchange="setTaskResetDay('${t.id}', this.value)" style="font-size:11.5px; padding:2px 4px; border-radius:6px; font-family:inherit;">${FULL_DAY_NAMES.map((n,i)=>`<option value="${i}" ${(parseInt(t.resetDay)||0)===i?'selected':''}>${n}</option>`).join('')}</select></div>`:''}
         </div>
         <button class="del" onclick="deleteTask('${t.id}')">✕</button>
       </div>
@@ -856,6 +853,60 @@ function renderReminders(){
           <div class="entry-meta">${r.time?formatClockTime(r.time)+' · ':''}Resets every day</div>
         </div>
         <button class="del" onclick="deleteReminder('${r.id}')">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ================= Weekly reminders ================= */
+function isWeeklyReminderDoneNow(r){ return r.lastDoneWeek === weekKeyFor(r.day); }
+function weeklyReminderSort(a,b){
+  const aDone = isWeeklyReminderDoneNow(a), bDone = isWeeklyReminderDoneNow(b);
+  if(aDone!==bDone) return aDone?1:-1;
+  if(a.day!==b.day) return a.day-b.day;
+  if(a.time && b.time) return a.time.localeCompare(b.time);
+  if(a.time) return -1; if(b.time) return 1;
+  return 0;
+}
+function addWeeklyReminder(){
+  const input = document.getElementById('weekly-reminder-input');
+  const day = parseInt(document.getElementById('weekly-reminder-day').value)||0;
+  const timeVal = document.getElementById('weekly-reminder-time').value;
+  const text = input.value.trim();
+  if(!text) return;
+  data.weeklyReminders.push({id:uid(), text, day, time:timeVal||null, lastDoneWeek:null});
+  input.value=''; document.getElementById('weekly-reminder-time').value=''; document.getElementById('weekly-reminder-day').value='0';
+  save('weeklyReminders'); renderWeeklyReminders(); renderToday();
+  showToast('Weekly reminder added');
+}
+function toggleWeeklyReminder(id){
+  const r = data.weeklyReminders.find(x=>x.id===id); if(!r) return;
+  r.lastDoneWeek = isWeeklyReminderDoneNow(r) ? null : weekKeyFor(r.day);
+  save('weeklyReminders'); renderWeeklyReminders(); renderToday();
+}
+function setWeeklyReminderDay(id, day){
+  const r = data.weeklyReminders.find(x=>x.id===id); if(!r) return;
+  const wasDone = isWeeklyReminderDoneNow(r);
+  r.day = parseInt(day)||0;
+  r.lastDoneWeek = wasDone ? weekKeyFor(r.day) : null;
+  save('weeklyReminders'); renderWeeklyReminders(); renderToday();
+  showToast('Now repeats every '+FULL_DAY_NAMES[r.day]);
+}
+function deleteWeeklyReminder(id){ data.weeklyReminders = data.weeklyReminders.filter(x=>x.id!==id); save('weeklyReminders'); renderWeeklyReminders(); renderToday(); }
+function renderWeeklyReminders(){
+  const el = document.getElementById('weekly-reminder-list');
+  if(data.weeklyReminders.length===0){ el.innerHTML = '<div class="empty">Add things that repeat weekly, like watering plants or taking out the trash.</div>'; return; }
+  const sorted = [...data.weeklyReminders].sort(weeklyReminderSort);
+  el.innerHTML = sorted.map(r=>{
+    const done = isWeeklyReminderDoneNow(r);
+    return `
+      <div class="entry weekly-reminder ${done?'done':''}">
+        <div class="check ${done?'checked':''}" onclick="toggleWeeklyReminder('${r.id}')"></div>
+        <div class="entry-body">
+          <div class="entry-title">${escapeHtml(r.text)}</div>
+          <div class="entry-meta">${r.time?formatClockTime(r.time)+' · ':''}Every <select onchange="setWeeklyReminderDay('${r.id}', this.value)" style="font-size:11.5px; padding:2px 4px; border-radius:6px; font-family:inherit;">${FULL_DAY_NAMES.map((n,i)=>`<option value="${i}" ${(parseInt(r.day)||0)===i?'selected':''}>${n}</option>`).join('')}</select></div>
+        </div>
+        <button class="del" onclick="deleteWeeklyReminder('${r.id}')">✕</button>
       </div>
     `;
   }).join('');
@@ -1244,7 +1295,7 @@ document.getElementById('confirm-modal-overlay').addEventListener('click', (e)=>
 
 /* ================= Export / Import ================= */
 function exportData(){
-  const backup = {tasks:data.tasks, events:data.events, learning:data.learning, free:data.free, reminders:data.reminders, exportedAt:new Date().toISOString()};
+  const backup = {tasks:data.tasks, events:data.events, learning:data.learning, free:data.free, reminders:data.reminders, weeklyReminders:data.weeklyReminders, exportedAt:new Date().toISOString()};
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1272,7 +1323,8 @@ async function importData(evt){
     data.learning = Array.isArray(parsed.learning) ? parsed.learning : [];
     data.free = Array.isArray(parsed.free) ? parsed.free : [];
     data.reminders = Array.isArray(parsed.reminders) ? parsed.reminders : [];
-    await save('tasks'); await save('events'); await save('learning'); await save('free'); await save('reminders');
+    data.weeklyReminders = Array.isArray(parsed.weeklyReminders) ? parsed.weeklyReminders : [];
+    await save('tasks'); await save('events'); await save('learning'); await save('free'); await save('reminders'); await save('weeklyReminders');
     renderAll();
     showToast('Backup imported');
     if(syncKey) pushToServer();
@@ -1306,6 +1358,16 @@ function renderToday(){
       }).join('')
     : '<div class="empty">Add daily habits like supplements.</div>';
 
+  document.getElementById('today-weekly-reminders').innerHTML = data.weeklyReminders.length
+    ? [...data.weeklyReminders].sort(weeklyReminderSort).map(r=>{
+        const done = isWeeklyReminderDoneNow(r);
+        return `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <div class="check ${done?'checked':''}" style="width:16px;height:16px;flex-shrink:0;" onclick="toggleWeeklyReminder('${r.id}')"></div>
+          <span class="today-line" style="margin:0; ${done?'text-decoration:line-through; opacity:0.5;':''}">${escapeHtml(r.text)} <span class="entry-meta">(${FULL_DAY_NAMES[r.day]}${r.time?', '+formatClockTime(r.time):''})</span></span>
+        </div>`;
+      }).join('')
+    : '<div class="empty">Add things that repeat weekly.</div>';
+
   const rangeEnd = addDays(new Date(),30);
   const occMap = buildOccurrenceMap('events', new Date(), rangeEnd);
   const upcoming = [];
@@ -1329,8 +1391,8 @@ function renderToday(){
 }
 
 /* ================= Init ================= */
-function renderAll(){ renderTasks(); renderReminders(); renderLearning(); renderFree(); renderCalendar(); renderToday(); }
-['task-input','learning-input','free-input','reminder-input','ev-title'].forEach(id=>{
+function renderAll(){ renderTasks(); renderReminders(); renderWeeklyReminders(); renderLearning(); renderFree(); renderCalendar(); renderToday(); }
+['task-input','learning-input','free-input','reminder-input','weekly-reminder-input','ev-title'].forEach(id=>{
   const el = document.getElementById(id);
   if(el) el.addEventListener('keydown', e=>{
     if(e.key==='Enter' && id!=='ev-title'){
@@ -1338,6 +1400,7 @@ function renderAll(){ renderTasks(); renderReminders(); renderLearning(); render
       else if(id==='learning-input') addLearning();
       else if(id==='free-input') addFree();
       else if(id==='reminder-input') addReminder();
+      else if(id==='weekly-reminder-input') addWeeklyReminder();
     }
   });
 });
